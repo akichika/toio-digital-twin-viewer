@@ -503,9 +503,16 @@ class TwinRenderer {
       new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.95 }));
     cage.name = 'cage'; g.add(cage);
 
-    // Colored base ring — cube identity + LED indicator, visible even when tilted
-    const ring = new THREE.Mesh(new THREE.TorusGeometry(U3_CUBE * 0.6, 0.11, 8, 36), new THREE.MeshBasicMaterial({ color: col }));
-    ring.name = 'ring'; ring.rotation.x = Math.PI / 2; ring.position.y = -U3_H / 2 + 0.05; g.add(ring);
+    // Colored square base frame — follows the cube footprint (identity + LED),
+    // aligned to the cube's faces and visible even when tilted.
+    const o = U3_CUBE * 0.62, inr = U3_CUBE * 0.52;
+    const sq = new THREE.Shape();
+    sq.moveTo(-o, -o); sq.lineTo(o, -o); sq.lineTo(o, o); sq.lineTo(-o, o); sq.lineTo(-o, -o);
+    const hole = new THREE.Path();
+    hole.moveTo(-inr, -inr); hole.lineTo(-inr, inr); hole.lineTo(inr, inr); hole.lineTo(inr, -inr); hole.lineTo(-inr, -inr);
+    sq.holes.push(hole);
+    const ring = new THREE.Mesh(new THREE.ShapeGeometry(sq), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide }));
+    ring.name = 'ring'; ring.rotation.x = -Math.PI / 2; ring.position.y = -U3_H / 2 + 0.05; g.add(ring);
 
     // Heading arrow at the base, pointing "front" (−Z at yaw 0)
     const shape = new THREE.Shape();
