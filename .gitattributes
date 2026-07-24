@@ -1,3 +1,6 @@
+# Auto detect text files and perform LF normalization
+* text=auto
+
 # Keep vendored libraries, the 3D model and images byte-exact
 js/vendor/** -text
 models/**    -text
