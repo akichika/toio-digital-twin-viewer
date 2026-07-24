@@ -415,7 +415,6 @@ class TwinRenderer {
     if (!window.THREE) { console.warn('Three.js not loaded'); return; }
     const W = this._div3d.clientWidth || 400, H = this._div3d.clientHeight || 400;
     this._scene = new THREE.Scene();
-    this._scene.background = new THREE.Color(this._matType === 'original' ? 0xEEF2FA : 0xF0F2F7);
     this._camera = new THREE.PerspectiveCamera(45, W / H, 0.1, 1000);
     this._renderer = new THREE.WebGLRenderer({ antialias: true });
     this._renderer.setSize(W, H); this._renderer.setPixelRatio(window.devicePixelRatio);
@@ -431,6 +430,7 @@ class TwinRenderer {
     this._resetCamera();
     this._sync3DCubes();
     this._buildRotationHandles();
+    this.applyThemeBackground();
   }
 
   _buildMatPlane() {
@@ -440,7 +440,6 @@ class TwinRenderer {
     if (this._matBorder) { this._scene.remove(this._matBorder); this._matBorder.geometry.dispose(); }
     const cfg = this._matCfg;
     const W3 = (cfg.xMax - cfg.xMin) / 10, H3 = (cfg.yMax - cfg.yMin) / 10;
-    this._scene.background = new THREE.Color(this._matType === 'original' ? 0xEEF2FA : 0xF0F2F7);
     const mat = new THREE.MeshLambertMaterial({ color: this._matType === 'original' ? 0xEEF5FF : 0xFAFAF8, side: THREE.DoubleSide });
     this._matMesh = new THREE.Mesh(new THREE.PlaneGeometry(W3, H3), mat);
     this._matMesh.rotation.x = -Math.PI / 2; this._scene.add(this._matMesh);
