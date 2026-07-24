@@ -1,0 +1,6 @@
+# Keep vendored libraries, the 3D model and images byte-exact
+js/vendor/** -text
+models/**    -text
+*.gltf       -text
+*.png        binary
+*.svg        text
