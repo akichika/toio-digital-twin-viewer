@@ -13,13 +13,16 @@ Connect one or more cubes over **Web Bluetooth**, watch their position, heading,
 
 - 🎮 **Remote / RC control** — drive with arrow keys / WASD or the on-screen D-pad; spin, LED colours and sound effects
 - 🛰️ **Digital twin** — real cube position/heading/LED mirrored live from BLE onto the mat
+- 🧊 **Official toio 3D model** — the real Core Cube shape (toio spec GLTF) is shown in the 3D view
+- 🪂 **Off-mat attitude** — lifted off the mat, the cube floats ~5 cm at its last position and its **motion-sensor tilt (roll/pitch/yaw)** is reflected in 3D
 - 🧭 **2D map + 3D view** — orbit the 3D scene; both show the motion **trajectory**
 - 🧩 **Multiple cubes** — connect several cubes and target one or all
 - 🕹️ **Demo cubes** — try the whole UI without hardware (virtual, simulated cubes)
 - 🗺️ **Click to move** — click the mat to send the targeted cube there (`moveTo`)
+- 🎛️ **Collapsible control panel** — the remote-control pane folds away (collapsed by default); toggle with the 🎮 button
 - 🌐 **Multi-language** — 日本語 / English / 中文
 - 🎨 **Colour themes** — light / dark / high-contrast
-- 📱 **PWA** — installable and works offline
+- 📱 **PWA** — installable (⬇ icon) and works offline
 
 ## Usage
 
@@ -55,10 +58,16 @@ js/toio.js              Web Bluetooth multi-cube communication (ToioDevice / Toi
 js/twin.js              digital-twin renderer (2D + 3D + trails) & DemoCube physics
 js/control.js           keyboard + on-screen remote control
 js/app.js               glue: cubes, UI, theme, PWA
-js/vendor/              Three.js r128 + OrbitControls (bundled for offline PWA)
+js/vendor/              Three.js r128 + OrbitControls + GLTFLoader (bundled for offline PWA)
+models/                 official toio Core Cube GLTF model (CC BY-ND 4.0)
 manifest.webmanifest    PWA manifest
 sw.js                   service worker (offline cache)
 ```
+
+## Credits & third-party assets
+
+- **toio Core Cube 3D model** (`models/toiocorecube_v003.gltf`) — from the [toio spec hardware shape page](https://toio.github.io/toio-spec/docs/hardware_shape/), © Sony Interactive Entertainment Inc., licensed **CC BY-ND 4.0**. Redistributed unmodified with attribution; displayed (scaled/rotated) at runtime without altering the source file.
+- **Three.js** r128 (MIT) — bundled in `js/vendor/` for offline use.
 
 ## Disclaimer
 

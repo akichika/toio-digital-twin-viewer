@@ -1,6 +1,6 @@
 /* sw.js — Service worker for offline PWA support.
    Cache-first for same-origin app shell; network passthrough for the rest. */
-const CACHE = 'toio-twin-v1';
+const CACHE = 'toio-twin-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -12,6 +12,7 @@ const ASSETS = [
   './js/app.js?v=1',
   './js/vendor/three.min.js',
   './js/vendor/OrbitControls.js',
+  './js/vendor/GLTFLoader.js',
   './manifest.webmanifest',
   './icons/icon.svg',
   './icons/icon-192.png',

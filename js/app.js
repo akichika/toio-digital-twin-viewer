@@ -29,6 +29,7 @@ class RealCube {
       x: p.x, y: p.y, angle: p.angle, led: this._led, trail: this._trail,
       showTrail: this.showTrail, index: this.index, name: this.name,
       isDemo: false, onMat: !!this.device._posValid,
+      attitude: this.device._attValid ? this.device.attitude : null,
     };
   }
   get position() { return this.device.position; }
@@ -159,6 +160,12 @@ const App = {
     document.getElementById('btn-fullscreen').addEventListener('click', () => this._toggleFullscreen());
     document.addEventListener('fullscreenchange', () => this.renderer.resize());
 
+    // Collapsible control panel (collapsed by default)
+    const panelOpen = localStorage.getItem('panelOpen') === '1';
+    this._setPanel(panelOpen);
+    document.getElementById('btn-panel').addEventListener('click', () =>
+      this._setPanel(!document.getElementById('main').classList.contains('panel-open')));
+
     // Theme cycle
     document.getElementById('btn-theme').addEventListener('click', () => {
       const order = ['light', 'dark', 'hc'];
@@ -199,6 +206,14 @@ const App = {
 
     // Sound buttons
     document.querySelectorAll('.snd-btn').forEach(b => b.addEventListener('click', () => this.control.soundEffect(parseInt(b.dataset.snd))));
+  },
+
+  _setPanel(open) {
+    const main = document.getElementById('main');
+    main.classList.toggle('panel-open', open);
+    document.getElementById('btn-panel').classList.toggle('active', open);
+    localStorage.setItem('panelOpen', open ? '1' : '0');
+    if (this.renderer) this.renderer.resize();
   },
 
   _toggleFullscreen() {

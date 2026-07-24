@@ -10,6 +10,17 @@
 const CUBE_COLORS = ['#0078FF', '#18B86B', '#D97706', '#DC2626'];
 window.CUBE_COLORS = CUBE_COLORS;
 
+/* 3D scale: 1 THREE unit = 10 mm. toio Core Cube ≈ 32 mm wide.  */
+const U3_CUBE  = 3.2;    // cube footprint (32 mm)
+const U3_H     = 2.24;   // cube height (visual)
+const U3_FLOAT = 5.0;    // hover height when off the mat (≈ 5 cm)
+const U3_REST  = U3_H / 2 + 0.2;   // resting cube-centre height above mat
+/* Motion-sensor Euler → THREE rotation sign/axis mapping (order 'YXZ').
+   Signs chosen to match the on-mat heading convention; adjust here if a real
+   cube's tilt appears mirrored on any axis. */
+const ATT_SIGN = { pitch: 1, yaw: -1, roll: 1 };
+const MODEL_URL = './models/toiocorecube_v003.gltf';
+
 /* ── Mat configurations ─────────────────────────────────────────────────── */
 const MAT_CONFIGS = {
   simple:   { xMin: 98, yMin: 142, xMax: 402, yMax: 358, label: () => t('ui.matSimple') },
@@ -167,6 +178,8 @@ class TwinRenderer {
     this._matMesh = this._gridHelper = this._matBorder = null;
     this._rotHandles = null; this._3dToolbar = null;
     this._ro = null;
+    this._model = null;
+    this._modelState = null;   // null | 'loading' | 'ready' | 'failed'
   }
 
   get _matCfg() { return getMatConfig(this._matType); }
@@ -431,6 +444,7 @@ class TwinRenderer {
     this._sync3DCubes();
     this._buildRotationHandles();
     this.applyThemeBackground();
+    this._loadModel();
   }
 
   _buildMatPlane() {
@@ -469,20 +483,38 @@ class TwinRenderer {
     return { x: (mx - (cfg.xMin + cfg.xMax) / 2) / 10, z: (my - (cfg.yMin + cfg.yMax) / 2) / 10 };
   }
 
+  /* Build a per-cube group: fallback box (+outline), colored base ring and
+     heading arrow, and — once loaded — a clone of the official toio model. */
+  _makeCubeGroup(idx) {
+    const g = new THREE.Group();
+    const col = parseInt(CUBE_COLORS[idx % CUBE_COLORS.length].replace('#', ''), 16);
+
+    const box = new THREE.Mesh(new THREE.BoxGeometry(U3_CUBE, U3_H, U3_CUBE), new THREE.MeshLambertMaterial({ color: 0xfafafa }));
+    box.name = 'box';
+    const outline = new THREE.Mesh(new THREE.BoxGeometry(U3_CUBE + 0.22, U3_H + 0.22, U3_CUBE + 0.22), new THREE.MeshBasicMaterial({ color: col, side: THREE.BackSide }));
+    outline.name = 'outline'; box.add(outline); g.add(box);
+
+    // Colored base ring — cube identity + LED indicator, visible even when tilted
+    const ring = new THREE.Mesh(new THREE.TorusGeometry(U3_CUBE * 0.6, 0.11, 8, 36), new THREE.MeshBasicMaterial({ color: col }));
+    ring.name = 'ring'; ring.rotation.x = Math.PI / 2; ring.position.y = -U3_H / 2 + 0.05; g.add(ring);
+
+    // Heading arrow at the base, pointing "front" (−Z at yaw 0)
+    const shape = new THREE.Shape();
+    shape.moveTo(0, U3_CUBE * 0.5); shape.lineTo(-U3_CUBE * 0.22, U3_CUBE * 0.18); shape.lineTo(U3_CUBE * 0.22, U3_CUBE * 0.18); shape.closePath();
+    const arrow = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide }));
+    arrow.name = 'arrow'; arrow.rotation.x = -Math.PI / 2; arrow.position.y = -U3_H / 2 + 0.06; g.add(arrow);
+
+    if (this._modelState === 'ready' && this._model) {
+      const m = this._model.clone(true); m.name = 'model'; g.add(m); box.visible = false;
+    }
+    return g;
+  }
+
   _sync3DCubes() {
     if (!this._scene) return;
-    const CW = 3.2, CH = 2.24;
     while (this._meshes.length < this._cubes.length) {
-      const idx = this._meshes.length;
-      const col = parseInt(CUBE_COLORS[idx % CUBE_COLORS.length].replace('#', ''), 16);
-      const mesh = new THREE.Mesh(new THREE.BoxGeometry(CW, CH, CW), new THREE.MeshLambertMaterial({ color: 0xfafafa }));
-      mesh.position.y = CH / 2 + 0.2; this._scene.add(mesh); this._meshes.push(mesh);
-      const outline = new THREE.Mesh(new THREE.BoxGeometry(CW + 0.22, CH + 0.22, CW + 0.22), new THREE.MeshBasicMaterial({ color: col, side: THREE.BackSide }));
-      outline.name = 'outline'; mesh.add(outline);
-      const shape = new THREE.Shape();
-      shape.moveTo(0, CW * 0.38); shape.lineTo(-CW * 0.16, CW * 0.14); shape.lineTo(CW * 0.16, CW * 0.14); shape.closePath();
-      const arrow = new THREE.Mesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color: col, side: THREE.DoubleSide }));
-      arrow.name = 'arrow'; arrow.rotation.x = -Math.PI / 2; arrow.position.y = CH / 2 + 0.02; mesh.add(arrow);
+      const g = this._makeCubeGroup(this._meshes.length);
+      this._scene.add(g); this._meshes.push(g);
     }
     while (this._meshes.length > this._cubes.length) { const m = this._meshes.pop(); this._scene.remove(m); }
     while (this._trailLines.length < this._cubes.length) {
@@ -495,23 +527,37 @@ class TwinRenderer {
     while (this._trailLines.length > this._cubes.length) { const l = this._trailLines.pop(); this._scene.remove(l); l.geometry.dispose(); }
 
     this._cubes.forEach((cube, i) => {
-      const s = cube.getState(); const mesh = this._meshes[i]; if (!mesh) return;
+      const s = cube.getState(); const g = this._meshes[i]; if (!g) return;
       const { x, z } = this._matTo3D(s.x, s.y);
-      mesh.position.x = x; mesh.position.z = z; mesh.position.y = CH / 2 + 0.2;
-      mesh.rotation.y = -(s.angle) * Math.PI / 180;
-      const outline = mesh.getObjectByName('outline'), arrow = mesh.getObjectByName('arrow');
+      g.position.x = x; g.position.z = z;
+
+      const floating = (s.onMat === false);
+      g.position.y = U3_REST + (floating ? U3_FLOAT : 0);
+      if (floating && s.attitude) {
+        // Off mat: reflect the motion-sensor attitude (Euler, degrees)
+        const d = Math.PI / 180, a = s.attitude;
+        g.rotation.order = 'YXZ';
+        g.rotation.set(ATT_SIGN.pitch * a.pitch * d, ATT_SIGN.yaw * a.yaw * d, ATT_SIGN.roll * a.roll * d);
+      } else {
+        g.rotation.set(0, -(s.angle) * Math.PI / 180, 0);   // on mat: flat, yaw only
+      }
+
+      const box = g.getObjectByName('box'), outline = g.getObjectByName('outline');
+      const ring = g.getObjectByName('ring'), arrow = g.getObjectByName('arrow');
       const baseCol = parseInt(CUBE_COLORS[i % CUBE_COLORS.length].replace('#', ''), 16);
       if (s.led) {
-        const { r, g, b } = s.led;
-        mesh.material.color.setRGB(0.92 + r / 3200, 0.92 + g / 3200, 0.92 + b / 3200);
-        mesh.material.emissive.setRGB(r / 600, g / 600, b / 600);
-        if (outline) outline.material.color.setRGB(r / 255, g / 255, b / 255);
-        if (arrow) arrow.material.color.setRGB(r / 255, g / 255, b / 255);
+        const { r, g: gg, b } = s.led;
+        if (box && box.visible) { box.material.color.setRGB(0.92 + r / 3200, 0.92 + gg / 3200, 0.92 + b / 3200); box.material.emissive.setRGB(r / 600, gg / 600, b / 600); }
+        if (outline) outline.material.color.setRGB(r / 255, gg / 255, b / 255);
+        if (ring) ring.material.color.setRGB(r / 255, gg / 255, b / 255);
+        if (arrow) arrow.material.color.setRGB(r / 255, gg / 255, b / 255);
       } else {
-        mesh.material.color.setHex(0xfafafa); mesh.material.emissive.setHex(0x000000);
+        if (box) { box.material.color.setHex(0xfafafa); box.material.emissive.setHex(0x000000); }
         if (outline) outline.material.color.setHex(baseCol);
+        if (ring) ring.material.color.setHex(baseCol);
         if (arrow) arrow.material.color.setHex(baseCol);
       }
+
       const line = this._trailLines[i];
       if (line) {
         if (s.showTrail && s.trail.length >= 2) {
@@ -525,6 +571,49 @@ class TwinRenderer {
         } else line.visible = false;
       }
     });
+  }
+
+  /* ── toio Core Cube model (CC BY-ND 4.0, toio spec) ────────────────────── */
+  _loadModel() {
+    if (this._modelState) return;
+    if (!window.THREE || !THREE.GLTFLoader) { this._modelState = 'failed'; return; }
+    this._modelState = 'loading';
+    new THREE.GLTFLoader().load(MODEL_URL,
+      (gltf) => { this._model = this._prepModel(gltf.scene); this._modelState = 'ready'; this._rebuildVisuals(); },
+      undefined,
+      (err) => { console.warn('toio model load failed:', err); this._modelState = 'failed'; });
+  }
+
+  /** Orient (smallest extent = up), centre and scale the model to the cube size. */
+  _prepModel(scene) {
+    const inner = scene;
+    let box = new THREE.Box3().setFromObject(inner);
+    const size = new THREE.Vector3(); box.getSize(size);
+    // The cube is shorter than it is wide → the smallest axis is "up".
+    const dims = [['x', size.x], ['y', size.y], ['z', size.z]].sort((a, b) => a[1] - b[1]);
+    if (dims[0][0] === 'z') inner.rotation.x = -Math.PI / 2;
+    else if (dims[0][0] === 'x') inner.rotation.z = Math.PI / 2;
+    inner.updateMatrixWorld(true);
+    box = new THREE.Box3().setFromObject(inner);
+    box.getSize(size);
+    const center = new THREE.Vector3(); box.getCenter(center);
+    const footprint = Math.max(size.x, size.z) || 1;
+    const scale = U3_CUBE / footprint;
+    const tpl = new THREE.Group();
+    inner.position.sub(center);        // centre at origin
+    tpl.add(inner);
+    tpl.scale.setScalar(scale);
+    return tpl;
+  }
+
+  /** Swap fallback boxes for model clones once the model is available. */
+  _rebuildVisuals() {
+    if (this._modelState !== 'ready' || !this._model) return;
+    for (const g of this._meshes) {
+      if (g.getObjectByName('model')) continue;
+      const box = g.getObjectByName('box'); if (box) box.visible = false;
+      const m = this._model.clone(true); m.name = 'model'; g.add(m);
+    }
   }
   _update3D() { if (this._controls) this._controls.update(); this._sync3DCubes(); }
 

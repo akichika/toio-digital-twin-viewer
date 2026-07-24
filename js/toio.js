@@ -29,12 +29,13 @@ const CHAR_SENSOR    = '10b20106-5b3b-4571-9508-cf3efcd7bbae';
 const CHAR_BUTTON    = '10b20107-5b3b-4571-9508-cf3efcd7bbae';
 const CHAR_BATTERY   = '10b20108-5b3b-4571-9508-cf3efcd7bbae';
 const CHAR_ID_READER = '10b20101-5b3b-4571-9508-cf3efcd7bbae';
+const CHAR_CONFIG    = '10b201ff-5b3b-4571-9508-cf3efcd7bbae';
 
 /**
  * Approximate playback durations (ms) for each pre-programmed sound effect.
  * IDs: 0=Enter 1=Selected 2=Cancel 3=Cursor 4=Mat 5=Get 6=Score 7=Lose
  */
-const EFFECT_DURATIONS = [350, 200, 200, 120, 220, 200, 450, 350];
+const EFFECT_DURATIONS = [350, 200, 200, 120, 220, 220, 300, 300, 300, 400, 400];
 
 class ToioDevice {
   constructor(device, index) {
@@ -47,6 +48,11 @@ class ToioDevice {
     this._posValid = false;   // true once we've received at least one position notification
     this.led      = { r: 0, g: 0, b: 0 };
     this.button   = false;
+
+    // Motion sensor — high-precision posture angle (Euler, degrees)
+    this.attitude   = { roll: 0, pitch: 0, yaw: 0 };
+    this._attValid  = false;
+    this.horizontal = true;   // motion-detection "is flat" flag
 
     // moveTo completion tracking — rotating 8-bit control ID per command
     this._moveCtrlId   = 0;
@@ -66,6 +72,7 @@ class ToioDevice {
     this._chars.button   = await get(CHAR_BUTTON);
     this._chars.battery  = await get(CHAR_BATTERY);
     this._chars.idReader = await get(CHAR_ID_READER);
+    try { this._chars.config = await get(CHAR_CONFIG); } catch (e) { this._chars.config = null; }
 
     // ── Position / ID reader ─────────────────────────────────────────────────
     await this._chars.idReader.startNotifications();
@@ -84,6 +91,19 @@ class ToioDevice {
       this.button = e.target.value.getUint8(1) === 0x80;
       this._emit('button', this.button);
     });
+
+    // ── Motion sensor (posture / high-precision tilt) ────────────────────────
+    // Notifications carry both motion-detection (0x01) and posture-angle (0x03).
+    await this._chars.sensor.startNotifications();
+    this._chars.sensor.addEventListener('characteristicvaluechanged',
+      e => this._onSensor(e.target.value));
+    // Request Euler-angle posture notifications (toio spec §High-precision tilt).
+    //   [0x1d, reserved, contentType=0x01 Euler, interval=0x01 (×10ms), condition=0x01 on-change]
+    if (this._chars.config) {
+      try {
+        await this._chars.config.writeValue(new Uint8Array([0x1d, 0x00, 0x01, 0x01, 0x01]));
+      } catch (e) { /* older firmware: posture angle unsupported — ignore */ }
+    }
 
     // ── Disconnect ───────────────────────────────────────────────────────────
     // Resolve (not reject) all pending moveTo waiters so execution doesn't hang
@@ -136,6 +156,28 @@ class ToioDevice {
         delete this._moveResolvers[ctrlId];
         fn();
       }
+    }
+  }
+
+  /**
+   * Handle motion/sensor characteristic (0x10b20106) notifications.
+   *   0x01 = motion detection (horizontal, collision, double-tap, posture, shake)
+   *   0x03 = posture angle. Content type 0x01 = Euler angles (int16 LE, degrees):
+   *          roll (X, −179…180), pitch (Y, −90…90), yaw (Z, −179…180)
+   */
+  _onSensor(dv) {
+    const type = dv.getUint8(0);
+    if (type === 0x01) {
+      this.horizontal = dv.getUint8(1) === 0x01;
+      this._emit('motion', { horizontal: this.horizontal, posture: dv.getUint8(4) });
+    } else if (type === 0x03 && dv.getUint8(1) === 0x01) {
+      this.attitude = {
+        roll:  dv.getInt16(2, true),
+        pitch: dv.getInt16(4, true),
+        yaw:   dv.getInt16(6, true),
+      };
+      this._attValid = true;
+      this._emit('attitude', { ...this.attitude });
     }
   }
 
@@ -367,7 +409,7 @@ class ToioDevice {
    * IDs: 0=Enter 1=Selected 2=Cancel 3=Cursor 4=Mat 5=Get 6=Score 7=Lose
    */
   async playSoundEffect(effectId) {
-    const id  = Math.min(7, Math.max(0, effectId));
+    const id  = Math.min(10, Math.max(0, effectId));
     const cmd = new Uint8Array([0x02, id, 255]);
     await this._chars.sound.writeValue(cmd);
     // ★ Wait for the effect to finish (approximate durations from spec)

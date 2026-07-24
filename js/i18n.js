@@ -6,7 +6,7 @@ const LANGS = {
 
   /* ── Japanese ─────────────────────────────────────────────────────────── */
   ja: {
-    'app.title':        'toio デジタルツイン ビューワー',
+    'app.title':        'toioデジタルツインビューワー',
     'app.subtitle':     'ラジコン・遠隔操作',
 
     // Header / connection
@@ -103,6 +103,7 @@ const LANGS = {
     'about.fanMade':    'ファンメイド・非公式ツール',
     'about.disclaimer': 'このアプリは株式会社ソニー・インタラクティブエンタテインメントとは無関係の個人が制作したファンメイドツールです。toio™ は同社の商標です。',
     'about.oss':        'オープンソース (MIT ライセンス)',
+    'about.model':      '3Dモデル: toio Core Cube 3Dデータ（CC BY-ND 4.0 / Sony Interactive Entertainment）',
     'about.github':     'GitHub リポジトリ',
     'about.official':   'toio 公式サイト',
     'about.close':      '閉じる',
@@ -197,6 +198,7 @@ const LANGS = {
     'about.fanMade':    'Fan-made / Unofficial Tool',
     'about.disclaimer': 'This app is an independent fan-made tool, not affiliated with Sony Interactive Entertainment Inc. toio™ is their trademark.',
     'about.oss':        'Open Source (MIT License)',
+    'about.model':      '3D model: toio Core Cube 3D data (CC BY-ND 4.0, Sony Interactive Entertainment)',
     'about.github':     'GitHub Repository',
     'about.official':   'toio Official Site',
     'about.close':      'Close',
@@ -291,6 +293,7 @@ const LANGS = {
     'about.fanMade':    '粉丝制作 / 非官方工具',
     'about.disclaimer': '本应用为个人制作的粉丝工具，与索尼互动娱乐株式会社无关。toio™ 为其商标。',
     'about.oss':        '开源 (MIT 许可证)',
+    'about.model':      '3D模型: toio Core Cube 3D 数据 (CC BY-ND 4.0, 索尼互动娱乐)',
     'about.github':     'GitHub 仓库',
     'about.official':   'toio 官方网站',
     'about.close':      '关闭',
