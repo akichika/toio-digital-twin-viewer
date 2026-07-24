@@ -10,10 +10,13 @@
 const CUBE_COLORS = ['#0078FF', '#18B86B', '#D97706', '#DC2626'];
 window.CUBE_COLORS = CUBE_COLORS;
 
-/* 3D scale: 1 THREE unit = 10 mm. toio Core Cube ≈ 32 mm wide.  */
-const U3_CUBE  = 3.2;    // cube footprint (32 mm)
-const U3_H     = 2.24;   // cube height (visual)
-const U3_FLOAT = 5.0;    // hover height when off the mat (≈ 5 cm)
+/* 3D scale: _matTo3D divides mat coordinates by 10, so 1 THREE unit = 10 toio
+   coordinate units ≈ 13.6 mm (a 32 mm cube ≈ 23.5 coord units).
+   → cube footprint = 23.5 / 10 = 2.35 units; the simple-mat grid cell then
+   reads ≈ 59 mm, so the 32 mm cube sits correctly against the ~60 mm grid. */
+const U3_CUBE  = 2.35;   // cube footprint (32 mm)
+const U3_H     = 1.79;   // cube height (≈ 24 mm, model proportions)
+const U3_FLOAT = 3.67;   // hover height when off the mat (≈ 5 cm)
 const U3_REST  = U3_H / 2 + 0.2;   // resting cube-centre height above mat
 /* Motion-sensor Euler → THREE rotation sign/axis mapping (order 'YXZ').
    Signs chosen to match the on-mat heading convention; adjust here if a real
@@ -494,6 +497,12 @@ class TwinRenderer {
     const outline = new THREE.Mesh(new THREE.BoxGeometry(U3_CUBE + 0.22, U3_H + 0.22, U3_CUBE + 0.22), new THREE.MeshBasicMaterial({ color: col, side: THREE.BackSide }));
     outline.name = 'outline'; box.add(outline); g.add(box);
 
+    // Glowing colored wireframe cage (outer frame) — makes the white cube legible
+    const cage = new THREE.LineSegments(
+      new THREE.EdgesGeometry(new THREE.BoxGeometry(U3_CUBE * 1.03, U3_H * 1.03, U3_CUBE * 1.03)),
+      new THREE.LineBasicMaterial({ color: col, transparent: true, opacity: 0.95 }));
+    cage.name = 'cage'; g.add(cage);
+
     // Colored base ring — cube identity + LED indicator, visible even when tilted
     const ring = new THREE.Mesh(new THREE.TorusGeometry(U3_CUBE * 0.6, 0.11, 8, 36), new THREE.MeshBasicMaterial({ color: col }));
     ring.name = 'ring'; ring.rotation.x = Math.PI / 2; ring.position.y = -U3_H / 2 + 0.05; g.add(ring);
@@ -543,7 +552,7 @@ class TwinRenderer {
       }
 
       const box = g.getObjectByName('box'), outline = g.getObjectByName('outline');
-      const ring = g.getObjectByName('ring'), arrow = g.getObjectByName('arrow');
+      const ring = g.getObjectByName('ring'), arrow = g.getObjectByName('arrow'), cage = g.getObjectByName('cage');
       const baseCol = parseInt(CUBE_COLORS[i % CUBE_COLORS.length].replace('#', ''), 16);
       if (s.led) {
         const { r, g: gg, b } = s.led;
@@ -551,11 +560,13 @@ class TwinRenderer {
         if (outline) outline.material.color.setRGB(r / 255, gg / 255, b / 255);
         if (ring) ring.material.color.setRGB(r / 255, gg / 255, b / 255);
         if (arrow) arrow.material.color.setRGB(r / 255, gg / 255, b / 255);
+        if (cage) cage.material.color.setRGB(r / 255, gg / 255, b / 255);
       } else {
         if (box) { box.material.color.setHex(0xfafafa); box.material.emissive.setHex(0x000000); }
         if (outline) outline.material.color.setHex(baseCol);
         if (ring) ring.material.color.setHex(baseCol);
         if (arrow) arrow.material.color.setHex(baseCol);
+        if (cage) cage.material.color.setHex(baseCol);
       }
 
       const line = this._trailLines[i];
@@ -606,7 +617,8 @@ class TwinRenderer {
     // Fixed orientation correction for this model: first yaw 90°, then flip
     // 180° (upside-down). Applied in world space, in that order.
     tpl.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);   // yaw 90°
-    tpl.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), Math.PI);       // flip 180°
+    tpl.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), Math.PI);       // flip 180° (upright)
+    tpl.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), Math.PI);       // yaw 180° (front/back)
     return tpl;
   }
 
