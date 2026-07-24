@@ -603,6 +603,10 @@ class TwinRenderer {
     inner.position.sub(center);        // centre at origin
     tpl.add(inner);
     tpl.scale.setScalar(scale);
+    // Fixed orientation correction for this model: first yaw 90°, then flip
+    // 180° (upside-down). Applied in world space, in that order.
+    tpl.rotateOnWorldAxis(new THREE.Vector3(0, 1, 0), Math.PI / 2);   // yaw 90°
+    tpl.rotateOnWorldAxis(new THREE.Vector3(1, 0, 0), Math.PI);       // flip 180°
     return tpl;
   }
 
