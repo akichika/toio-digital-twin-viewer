@@ -1,0 +1,19 @@
+{
+  "name": "toio Digital Twin Viewer",
+  "short_name": "toio Twin",
+  "description": "Digital twin viewer & RC remote control for toio Core Cube — real-time 2D/3D position and trajectory, keyboard & on-screen driving, multi-cube.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#F0F2F7",
+  "theme_color": "#0078FF",
+  "lang": "ja",
+  "categories": ["education", "utilities"],
+  "icons": [
+    { "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml" },
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
